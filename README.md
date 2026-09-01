@@ -19,6 +19,12 @@ Click the clock for a menu with:
 - **Show Date / Show Time / Show Seconds / Show "UTC" Label** — toggles for what appears in the menu bar. Date and time can't both be off. Choices persist across restarts.
 - **Open at Login** — registers the app as a login item. macOS only allows this for an app in `/Applications`, so install it there first.
 
+## Icon
+
+`Resources/icon.svg` is the source; `build.sh` rasterizes it into `AppIcon.icns` with the `svg2png` helper. The SVG stores the lettering as outlines rather than a `<text>` element because SVG renderers disagree about font resolution — AppKit's, the one doing the rasterizing, substitutes a sans-serif for any `font-family` it is given. Regenerate the outlines with `swift run makeicon` after changing the letters, font, or layout in `Sources/makeicon/main.swift`.
+
 ## Notes
 
 The clock is always 24-hour and always Gregorian, regardless of the machine's locale and region settings. It ticks on a one-second timer anchored to the second boundary and re-anchors after the machine wakes from sleep.
+
+The menu bar text is Courier New Bold, sized so its cap height matches the surrounding menu bar font instead of its point size — Courier's cap height per point is small enough that matching point sizes would leave the clock looking undersized.

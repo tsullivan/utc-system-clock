@@ -6,6 +6,8 @@ struct Settings {
         static let showTime = "showTime"
         static let showSeconds = "showSeconds"
         static let showSuffix = "showSuffix"
+        static let fontName = "fontName"
+        static let fontSize = "fontSize"
     }
 
     private let defaults: UserDefaults
@@ -17,6 +19,8 @@ struct Settings {
             Key.showTime: true,
             Key.showSeconds: false,
             Key.showSuffix: true,
+            Key.fontName: StatusFont.defaultName,
+            Key.fontSize: StatusFont.defaultSize,
         ])
     }
 
@@ -38,6 +42,18 @@ struct Settings {
     var showSuffix: Bool {
         get { defaults.bool(forKey: Key.showSuffix) }
         set { defaults.set(newValue, forKey: Key.showSuffix) }
+    }
+
+    /// A family name ("Courier New") or a PostScript name ("CourierNewPS-BoldMT").
+    var fontName: String {
+        get { defaults.string(forKey: Key.fontName) ?? StatusFont.defaultName }
+        set { defaults.set(newValue, forKey: Key.fontName) }
+    }
+
+    /// Point size, or `0` to match the cap height of the surrounding menu bar.
+    var fontSize: Double {
+        get { defaults.double(forKey: Key.fontSize) }
+        set { defaults.set(newValue, forKey: Key.fontSize) }
     }
 
     /// A `DateFormatter` pattern built from the current toggles.

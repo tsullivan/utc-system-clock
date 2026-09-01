@@ -8,12 +8,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settings = Settings()
     private var formatter = ClockFormatter(format: "")
     private var renderedTitle = ""
+    private var appliedFormat = ""
 
     private let copyFormatter = ClockFormatter(format: "yyyy-MM-dd'T'HH:mm:ss'Z'")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 0, weight: .regular)
         statusItem.menu = buildMenu()
 
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -22,19 +22,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        // Picks up `defaults write local.utcclock …` from a shell without a relaunch.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDefaultsChange),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
 
-        applyFormat()
+        applyAppearance()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Ticking
 
-    private func applyFormat() {
-        formatter = ClockFormatter(format: settings.dateFormat)
+    private func applyAppearance() {
+        appliedFormat = settings.dateFormat
+        statusItem.button?.font = StatusFont.resolve(name: settings.fontName, size: settings.fontSize)
+        formatter = ClockFormatter(format: appliedFormat)
         renderedTitle = ""
         startTimer()
         tick()
@@ -67,7 +77,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleWake() {
-        applyFormat()
+        applyAppearance()
+    }
+
+    /// External writes are delivered on whichever thread `cfprefsd` notifies.
+    @objc private nonisolated func handleDefaultsChange() {
+        Task { @MainActor in
+            // The notification also fires for this app's own writes, which have already
+            // been applied; re-running would restart the tick on every menu toggle.
+            let font = StatusFont.resolve(name: settings.fontName, size: settings.fontSize)
+            guard font != statusItem.button?.font || appliedFormat != settings.dateFormat else { return }
+            applyAppearance()
+            refreshMenu()
+        }
     }
 
     // MARK: - Menu
@@ -112,26 +134,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.showDate.toggle()
         // An empty menu bar item would be unclickable, so the two fields can never both be off.
         if !settings.showDate && !settings.showTime { settings.showTime = true }
-        applyFormat()
+        applyAppearance()
         refreshMenu()
     }
 
     @objc private func toggleTime() {
         settings.showTime.toggle()
         if !settings.showDate && !settings.showTime { settings.showDate = true }
-        applyFormat()
+        applyAppearance()
         refreshMenu()
     }
 
     @objc private func toggleSeconds() {
         settings.showSeconds.toggle()
-        applyFormat()
+        applyAppearance()
         refreshMenu()
     }
 
     @objc private func toggleSuffix() {
         settings.showSuffix.toggle()
-        applyFormat()
+        applyAppearance()
         refreshMenu()
     }
 
