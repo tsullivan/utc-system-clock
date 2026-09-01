@@ -8,13 +8,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settings = Settings()
     private var formatter = ClockFormatter(format: "")
     private var renderedTitle = ""
-    private var appliedFormat = ""
+    private var appliedAppearance: (font: String, size: Double, format: String) = ("", 0, "")
 
     private let copyFormatter = ClockFormatter(format: "yyyy-MM-dd'T'HH:mm:ss'Z'")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let menu = NSMenu()
+        menu.delegate = self
+        menu.autoenablesItems = false
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.menu = buildMenu()
+        statusItem.menu = menu
 
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
@@ -22,33 +26,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
-        // Picks up `defaults write local.utcclock …` from a shell without a relaunch.
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleDefaultsChange),
-            name: UserDefaults.didChangeNotification,
-            object: nil
-        )
 
-        applyAppearance()
+        startTimer()
+        tick()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
-        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Ticking
-
-    private func applyAppearance() {
-        appliedFormat = settings.dateFormat
-        statusItem.button?.font = StatusFont.resolve(name: settings.fontName, size: settings.fontSize)
-        formatter = ClockFormatter(format: appliedFormat)
-        renderedTitle = ""
-        startTimer()
-        tick()
-    }
 
     private func startTimer() {
         timer?.invalidate()
@@ -70,59 +58,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tick() {
+        syncAppearance()
         let title = formatter.string(from: Date())
         guard title != renderedTitle else { return }
         renderedTitle = title
         statusItem.button?.title = title
     }
 
-    @objc private func handleWake() {
-        applyAppearance()
+    /// Picks up `defaults write local.utcclock …` without a relaunch. cfprefsd posts no
+    /// change notification to this process, but a read does see the external write, so
+    /// the per-second tick is what notices.
+    private func syncAppearance() {
+        let appearance = (settings.fontName, settings.fontSize, settings.dateFormat)
+        guard appearance != appliedAppearance else { return }
+        appliedAppearance = appearance
+        statusItem.button?.font = StatusFont.resolve(name: appearance.0, size: appearance.1)
+        formatter = ClockFormatter(format: appearance.2)
+        renderedTitle = ""
     }
 
-    /// External writes are delivered on whichever thread `cfprefsd` notifies.
-    @objc private nonisolated func handleDefaultsChange() {
-        Task { @MainActor in
-            // The notification also fires for this app's own writes, which have already
-            // been applied; re-running would restart the tick on every menu toggle.
-            let font = StatusFont.resolve(name: settings.fontName, size: settings.fontSize)
-            guard font != statusItem.button?.font || appliedFormat != settings.dateFormat else { return }
-            applyAppearance()
-            refreshMenu()
-        }
+    @objc private func handleWake() {
+        startTimer()
+        tick()
     }
 
     // MARK: - Menu
-
-    private func buildMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-
-        menu.addItem(item(title: "Copy UTC Timestamp", action: #selector(copyTimestamp)))
-        menu.addItem(.separator())
-
-        menu.addItem(item(title: "Show Date", action: #selector(toggleDate), state: settings.showDate))
-        menu.addItem(item(title: "Show Time", action: #selector(toggleTime), state: settings.showTime))
-        menu.addItem(item(title: "Show Seconds", action: #selector(toggleSeconds), state: settings.showSeconds))
-        menu.addItem(item(title: "Show \"UTC\" Label", action: #selector(toggleSuffix), state: settings.showSuffix))
-        menu.addItem(.separator())
-
-        menu.addItem(item(title: "Open at Login", action: #selector(toggleLaunchAtLogin), state: launchesAtLogin))
-        menu.addItem(.separator())
-
-        menu.addItem(item(title: "Quit UTC Clock", action: #selector(NSApplication.terminate(_:)), key: "q"))
-        return menu
-    }
 
     private func item(title: String, action: Selector, key: String = "", state: Bool? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
         if let state { item.state = state ? .on : .off }
         return item
-    }
-
-    private func refreshMenu() {
-        statusItem.menu = buildMenu()
     }
 
     @objc private func copyTimestamp() {
@@ -134,27 +100,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.showDate.toggle()
         // An empty menu bar item would be unclickable, so the two fields can never both be off.
         if !settings.showDate && !settings.showTime { settings.showTime = true }
-        applyAppearance()
-        refreshMenu()
+        tick()
     }
 
     @objc private func toggleTime() {
         settings.showTime.toggle()
         if !settings.showDate && !settings.showTime { settings.showDate = true }
-        applyAppearance()
-        refreshMenu()
+        tick()
     }
 
     @objc private func toggleSeconds() {
         settings.showSeconds.toggle()
-        applyAppearance()
-        refreshMenu()
+        tick()
     }
 
     @objc private func toggleSuffix() {
         settings.showSuffix.toggle()
-        applyAppearance()
-        refreshMenu()
+        tick()
     }
 
     // MARK: - Login item
@@ -180,6 +142,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 """
             alert.runModal()
         }
-        refreshMenu()
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+
+        menu.addItem(item(title: "Copy UTC Timestamp", action: #selector(copyTimestamp)))
+        menu.addItem(.separator())
+
+        menu.addItem(item(title: "Show Date", action: #selector(toggleDate), state: settings.showDate))
+        menu.addItem(item(title: "Show Time", action: #selector(toggleTime), state: settings.showTime))
+        menu.addItem(item(title: "Show Seconds", action: #selector(toggleSeconds), state: settings.showSeconds))
+        menu.addItem(item(title: "Show \"UTC\" Label", action: #selector(toggleSuffix), state: settings.showSuffix))
+        menu.addItem(.separator())
+
+        menu.addItem(item(title: "Open at Login", action: #selector(toggleLaunchAtLogin), state: launchesAtLogin))
+        menu.addItem(.separator())
+
+        menu.addItem(item(title: "Quit UTC Clock", action: #selector(NSApplication.terminate(_:)), key: "q"))
     }
 }
