@@ -161,6 +161,7 @@ extension AppDelegate: NSMenuDelegate {
         menu.addItem(item(title: "Open at Login", action: #selector(toggleLaunchAtLogin), state: launchesAtLogin))
         menu.addItem(.separator())
 
-        menu.addItem(item(title: "Quit UTC Clock", action: #selector(NSApplication.terminate(_:)), key: "q"))
+        let quit = NSMenuItem(title: "Quit UTC Clock", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quit)
     }
 }
