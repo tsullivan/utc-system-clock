@@ -1,6 +1,6 @@
 # UTC Clock
 
-A macOS menu bar clock showing the date and time in UTC, formatted `dd-mm-YYYY HH:mm UTC`. macOS has no built-in way to put a second time zone in the menu bar — the system clock always follows the machine's time zone, and Control Center's Clock Options offer no time zone or format field.
+A macOS menu bar clock showing the date and time in UTC, formatted `YYYY-MM-DD HH:mm UTC`. macOS has no built-in way to put a second time zone in the menu bar — the system clock always follows the machine's time zone, and Control Center's Clock Options offer no time zone or format field.
 
 ## Build
 
@@ -33,7 +33,7 @@ defaults delete local.utcclock fontSize          # back to the default
 | --- | --- | --- | --- |
 | `fontName` | string | `CourierNewPS-BoldMT` | Family name (`Courier New`) or PostScript name (`CourierNewPS-BoldMT`). A name that doesn't resolve falls back to Courier Bold rather than leaving the clock blank. |
 | `fontSize` | float | `14` | Point size. `0` means match the cap height of the surrounding menu bar, which lands near 15.5pt at the standard menu bar size and tracks the accessibility text size setting. |
-| `showDate` | bool | `true` | `dd-MM-yyyy` |
+| `showDate` | bool | `true` | `yyyy-MM-dd` |
 | `showTime` | bool | `true` | `HH:mm` |
 | `showSeconds` | bool | `false` | `HH:mm:ss` |
 | `showSuffix` | bool | `true` | Trailing `UTC` |

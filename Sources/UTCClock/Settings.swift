@@ -59,7 +59,7 @@ struct Settings {
     /// A `DateFormatter` pattern built from the current toggles.
     var dateFormat: String {
         var parts: [String] = []
-        if showDate { parts.append("dd-MM-yyyy") }
+        if showDate { parts.append("yyyy-MM-dd") }
         if showTime { parts.append(showSeconds ? "HH:mm:ss" : "HH:mm") }
         if showSuffix { parts.append("'UTC'") }
         return parts.joined(separator: " ")

@@ -8,5 +8,6 @@ let package = Package(
         .executableTarget(name: "UTCClock", path: "Sources/UTCClock"),
         .executableTarget(name: "svg2png", path: "Sources/svg2png"),
         .executableTarget(name: "makeicon", path: "Sources/makeicon"),
+        .testTarget(name: "UTCClockTests", dependencies: ["UTCClock"], path: "Tests/UTCClockTests"),
     ]
 )
